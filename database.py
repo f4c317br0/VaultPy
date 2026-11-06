@@ -1,5 +1,8 @@
 import sqlite3
 import os
+from contextlib import contextmanager
+from datetime import datetime
+from encryption import Encryption
 
 
 def init_database():
@@ -71,3 +74,66 @@ def init_database():
 if __name__ == "__main__":
     init_database()
     print("Все четко")
+
+
+class Database:
+    def __init__(self):
+        self.db_path = 'database/vault.db'
+        os.makedirs(os.path.dirname('database/vault.db') or '.', exist_ok=True)
+
+    @contextmanager
+    def _connection(self):
+        """открывает/закрывет соединение"""
+        con = sqlite3.connect(self.db_path)
+        con.row_factory = sqlite3.Row
+        con.execute("PRAGMA foreign_keys = ON")
+
+        try:
+            with con:
+                yield con
+        finally:
+            con.close()
+
+    @staticmethod
+    def _now():
+        """возвращает текущее время"""
+        return datetime.now().isoformat(timespec='seconds')
+
+    @staticmethod
+    def _check_text(value, field_name):
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"Поле {field_name} пустое!")
+
+    def register(self, username, masterpass):
+        """Создает пользователя"""
+        self._check_text(username, "Имя пользователя")
+        self._check_text(masterpass, "Мастер-пароль")
+        pass_hash, salt = Encryption.hash_pass(masterpass)
+        encr_salt = os.urandom(16)
+        encr_key = Encryption.derive_key(masterpass, encr_salt)
+        with self._connection() as con:
+            try:
+                cursor = con.execute(
+                    """
+                    INSERT INTO users (
+                        username,
+                        password_hash,
+                        salt,
+                        encryption_salt,
+                        created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        username.strip(),
+                        pass_hash,
+                        salt,
+                        encr_salt,
+                        self._now()
+                    )
+                )
+            except sqlite3.IntegrityError:
+                raise ValueError("Такой юзернейм уже занят")
+            user_id = cursor.lastrowid
+
+        return user_id, encr_key
