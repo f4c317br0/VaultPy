@@ -71,19 +71,14 @@ def init_database():
     con.close()
 
 
-if __name__ == "__main__":
-    init_database()
-    print("Все четко")
-
-
 class Database:
     def __init__(self):
         self.db_path = 'database/vault.db'
-        os.makedirs(os.path.dirname('database/vault.db') or '.', exist_ok=True)
+        os.makedirs(os.path.dirname(self.db_path) or '.', exist_ok=True)
 
     @contextmanager
     def _connection(self):
-        """открывает/закрывет соединение"""
+        """открывает/закрывает соединение"""
         con = sqlite3.connect(self.db_path)
         con.row_factory = sqlite3.Row
         con.execute("PRAGMA foreign_keys = ON")
@@ -143,7 +138,7 @@ class Database:
     def login(self, username, masterpass):
         """Проверяем данные пользователя -> возвращаем user id и encr key"""
         self._check_text(username, 'Имя пользователя')
-        self._check_text(masterpass, "Мастер пароль")
+        self._check_text(masterpass, "Мастер-пароль")
         with self._connection() as con:
             user = con.execute(
                 """
@@ -162,10 +157,10 @@ class Database:
         encr_key = Encryption.derive_key(masterpass, user['encryption_salt'])
         return user['id'], encr_key
 
-    # ----------------------------------------------ЗАМЕТКИ------------------------------------------------
+    # ----------------------------------------------КАТЕГОРИИ------------------------------------------------
 
     def add_category(self, user_id, name):
-        """Добваление категорий пользователя"""
+        """Добавление категорий пользователя"""
         self._check_text(name, "Название категории")
         with self._connection() as con:
             try:
@@ -189,7 +184,7 @@ class Database:
                 SELECT id, name, created_at
                 FROM categories
                 WHERE user_id = ?
-                ORDER by name
+                ORDER BY name
                 """,
                 (user_id,)
             ).fetchall()
@@ -197,7 +192,7 @@ class Database:
         return [dict(row) for row in rows]
 
     def rename_category(self, user_id, category_id, new_name):
-        """Переименовка каатегорий"""
+        """Переименование категорий"""
         self._check_text(new_name, 'Название категории')
         with self._connection() as con:
             try:
@@ -226,13 +221,13 @@ class Database:
                 """,
                 (category_id, user_id)
             )
-        if cursor.rowcount == 0:
-            raise ValueError('Категория не найдена!')
+            if cursor.rowcount == 0:
+                raise ValueError('Категория не найдена!')
 
     # ----------------------------------------------ПАРОЛИ------------------------------------------------
 
     def add_pass(self, user_id, category_id, title, login, password, url, encr_key):
-        """Добваление зашифрованной записи пароля"""
+        """Добавление зашифрованной записи пароля"""
         self._check_text(title, 'Название')
         self._check_text(login, 'Логин')
         self._check_text(password, 'Пароль')
@@ -267,7 +262,7 @@ class Database:
                     created_at,
                     updated_at
                 )
-                VALUES = (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (user_id, category_id, title.strip(), login.strip(), encr_pass, nonce, url.strip(), now, now)
             )
@@ -397,3 +392,77 @@ class Database:
             )
             return cursor.lastrowid
 
+    def get_notes(self, user_id, encr_key):
+        """Получение и расшифровка заметок"""
+
+        with self._connection() as con:
+            rows = con.execute(
+                """
+                SELECT
+                    id,
+                    title,
+                    encrypted_content,
+                    nonce,
+                    created_at,
+                    updated_at
+                FROM notes
+                WHERE user_id = ?
+                ORDER BY title
+                """,
+                (user_id,)
+            ).fetchall()
+
+        res = []
+
+        for row in rows:
+            content = Encryption.decrypt(row['encrypted_content'], row['nonce'], encr_key)
+            res.append({
+                "id": row["id"],
+                'title': row['title'],
+                'content': content,
+                'created_at': row['created_at'],
+                'updated_at': row['updated_at']
+            })
+
+        return res
+
+    def update_note(self, user_id, note_id, title, content, encr_key):
+        """Изменение заметки"""
+
+        self._check_text(title, 'Название заметки')
+        self._check_text(content, 'Содержимое заметки')
+
+        encr_content, nonce = Encryption.encrypt(content, encr_key)
+        with self._connection() as con:
+            cursor = con.execute(
+                """
+                UPDATE notes
+                SET
+                    title = ?,
+                    encrypted_content = ?,
+                    nonce = ?,
+                    updated_at = ?
+                WHERE id = ? AND user_id = ?
+                """,
+                (title.strip(), encr_content, nonce, self._now(), note_id, user_id)
+            )
+            if cursor.rowcount == 0:
+                raise ValueError('Заметка не найдена!')
+
+    def delete_note(self, user_id, note_id):
+        """Удаление заметки"""
+        with self._connection() as con:
+            cursor = con.execute(
+                """
+                DELETE FROM notes
+                WHERE id = ? AND user_id = ?
+                """,
+                (note_id, user_id)
+            )
+            if cursor.rowcount == 0:
+                raise ValueError('Заметка не найдена!')
+
+
+if __name__ == "__main__":
+    init_database()
+    print("Все четко")
