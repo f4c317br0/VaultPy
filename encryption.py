@@ -18,7 +18,7 @@ class Encryption:
         return pass_hash, salt
 
     @staticmethod
-    def verify_pass(password: str, salt: str, exp_hash: bytes) -> bool:  # при попытке входа сверяем хэши
+    def verify_pass(password: str, salt: bytes, exp_hash: bytes) -> bool:  # при попытке входа сверяем хэши
         """
         Авторизация
         :param password:
@@ -54,18 +54,12 @@ class Encryption:
         text_bytes = text.encode("utf-8")
         aesgcm = AESGCM(key)
         nonce = secrets.token_bytes(12)
-        cwt = aesgcm.encrypt(nonce, text_bytes, associated_data=None)
-        encrypted_data = cwt[:-16]
+        encrypted_data = aesgcm.encrypt(nonce, text_bytes, None)
         return encrypted_data, nonce
 
     @staticmethod
-    def decrypt(encrypted_data: bytes, nonce: bytes, key: bytes):
+    def decrypt(encrypted_data: bytes, nonce: bytes, key: bytes) -> str:
         aes = AESGCM(key)
-
-        decrypted_data = aes.decrypt(
-            nonce,
-            encrypted_data,
-            None
-        )
+        decrypted_data = aes.decrypt(nonce, encrypted_data, None)
 
         return decrypted_data.decode("utf-8")

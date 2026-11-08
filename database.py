@@ -130,7 +130,8 @@ class Database:
                     )
                 )
             except sqlite3.IntegrityError:
-                raise ValueError("Такой юзернейм уже занят")
+                raise ValueError("Такое имя пользователя уже занято.")
+
             user_id = cursor.lastrowid
 
         return user_id, encr_key
@@ -466,3 +467,23 @@ class Database:
 if __name__ == "__main__":
     init_database()
     print("Все четко")
+
+    db = Database()
+    user_id, encr_key = db.register("Roman", "my_master_pass")
+    res = db.login("Roman", "my_master_pass")
+    if res is None:
+        print("Неверное имя пользователя или пароль")
+    else:
+        user_id, encr_key = res
+        print('Успешный вход')
+
+        db.add_pass(user_id=user_id, category_id=None, title='Github', login='my_login', password='secret123',
+                    url='https://github.com', encr_key=encr_key)
+        encr_pass, nonce = Encryption.encrypt("secret123", encr_key)
+
+        passwords = db.get_pass(user_id, encr_key)
+
+        for item in passwords:
+            print(item["title"])
+            print(item["login"])
+            print(item["password"])
