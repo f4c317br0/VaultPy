@@ -1,6 +1,6 @@
 # VaultPy — менеджер паролей с локальным хранением и шифрованием.
 
-![Uploading logo.png…]()
+<img width="1254" height="1254" alt="logo" src="https://github.com/user-attachments/assets/05d909b5-486c-4bef-a74a-4aa1de390741" />
 
 
 ## Основные функции:
