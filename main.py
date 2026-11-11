@@ -1,5 +1,6 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QMessageBox
+from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QMessageBox, QDialog, \
+    QFormLayout, QDialogButtonBox, QCheckBox
 from database import Database, init_database
 
 
@@ -73,6 +74,47 @@ class LoginWindow(QWidget):
         self.main_window.show()
         self.close()
 
+
+class PassDialog(QDialog):
+    def __init__(self, parent=None, pass_data=None):
+        super().__init__(parent)
+
+        self.setWindowTitle("Изменение записи" if pass_data else "Новая запись")
+        self.setFixedSize(400, 300)
+
+        self.title_input = QLineEdit()
+        self.login_input = QLineEdit()
+        self.pass_input = QLineEdit()
+        self.url_input = QLineEdit()
+
+        self.title_input.setPlaceholderText("Например, GitHub")
+        self.login_input.setPlaceholderText("Имя пользователя или почта")
+        self.pass_input.setPlaceholderText("Пароль")
+        self.url_input.setPlaceholderText("https://example.com")
+
+        self.pass_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.show_pass_chb = QCheckBox("Показать пароль")
+        self.show_pass_chb.toggled.connect(self.toggle_pass_vis)
+
+        layout = QFormLayout()
+        layout.addRow("Название:", self.title_input)
+        layout.addRow("Логин:", self.login_input)
+        layout.addRow("Пароль", self.pass_input)
+        layout.addRow("", self.show_pass_chb)
+        layout.addRow("Сайт:", self.url_input)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save, QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+
+        layout.addRow(buttons)
+        self.setLayout(layout)
+
+        if pass_data:
+            self.title_input.setText(pass_data['title'])
+            self.login_input.setText(pass_data['login'])
+            self.pass_input.setText(pass_data['password'])
+            self.url_input.setText(pass_data['url'])
 
 class MainWindow(QWidget):
     def __init__(self, user_id, encryption_key):
