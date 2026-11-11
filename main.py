@@ -1,11 +1,9 @@
 import sys
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QMessageBox, QDialog, \
     QFormLayout, QDialogButtonBox, QCheckBox, QTableWidget, QTableWidgetItem, QHBoxLayout, QHeaderView, \
     QAbstractItemView
-from unicodedata import category
-
 from database import Database, init_database
-from PyQt6.QtCore import Qt
 
 
 class LoginWindow(QWidget):
@@ -74,7 +72,7 @@ class LoginWindow(QWidget):
     def open_main_window(self, user_id, encryption_key):
         """Начальное окно"""
 
-        self.main_window = MainWindow(user_id, encryption_key)
+        self.main_window = MainWindow(self.db, user_id, encryption_key)
         self.main_window.show()
         self.close()
 
@@ -107,7 +105,10 @@ class PassDialog(QDialog):
         layout.addRow("", self.show_pass_chb)
         layout.addRow("Сайт:", self.url_input)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save, QDialogButtonBox.StandardButton.Cancel)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save
+            | QDialogButtonBox.StandardButton.Cancel
+        )
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
 
@@ -134,7 +135,7 @@ class PassDialog(QDialog):
             "title": self.title_input.text().strip(),
             "login": self.login_input.text().strip(),
             "password": self.pass_input.text(),
-            "url": self.url_input.text().strip
+            "url": self.url_input.text()
         }
 
 
@@ -162,7 +163,7 @@ class MainWindow(QWidget):
 
         self.add_btn.clicked.connect(self.add_pass)
         self.edit_btn.clicked.connect(self.edit_pass)
-        self.delete_btn.clicked.connect(self.del_pass)
+        self.delete_btn.clicked.connect(self.delete_pass)
         self.refresh_btn.clicked.connect(self.load_pass)
 
         btns_layout = QHBoxLayout()
@@ -200,7 +201,7 @@ class MainWindow(QWidget):
         data = dialog.get_data()
         try:
             self.db.add_pass(user_id=self.user_id, category_id=None, title=data['title'], login=data['login'],
-                             password=data['password'], utl=data['url'], encr_key=self.encr_key)
+                             password=data['password'], url=data['url'], encr_key=self.encr_key)
             self.load_pass()
             QMessageBox.information(self, "Успешно", "Запись добавлена!")
         except ValueError as er:
@@ -245,8 +246,13 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, "Ошибка", str(er))
 
 
+def except_hook(cls, exception, traceback):
+    sys.__excepthook__(cls, exception, traceback)
+
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    sys.excepthook = except_hook
     init_database()
     db = Database()
     login_window = LoginWindow(db)
