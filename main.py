@@ -1,7 +1,11 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QMessageBox, QDialog, \
-    QFormLayout, QDialogButtonBox, QCheckBox
+    QFormLayout, QDialogButtonBox, QCheckBox, QTableWidget, QTableWidgetItem, QHBoxLayout, QHeaderView, \
+    QAbstractItemView
+from unicodedata import category
+
 from database import Database, init_database
+from PyQt6.QtCore import Qt
 
 
 class LoginWindow(QWidget):
@@ -116,19 +120,96 @@ class PassDialog(QDialog):
             self.pass_input.setText(pass_data['password'])
             self.url_input.setText(pass_data['url'])
 
+    def toggle_pass_vis(self, checked):
+        """Переключение видимости пароля"""
+
+        if checked:
+            self.pass_input.setEchoMode(QLineEdit.EchoMode.Normal)
+        else:
+            self.pass_input.setEchoMode(QLineEdit.EchoMode.Password)
+
+    def get_data(self):
+        """Возвращение введенных данных"""
+        return {
+            "title": self.title_input.text().strip(),
+            "login": self.login_input.text().strip(),
+            "password": self.pass_input.text(),
+            "url": self.url_input.text().strip
+        }
+
+
 class MainWindow(QWidget):
-    def __init__(self, user_id, encryption_key):
+    def __init__(self, db, user_id, encr_key):
         super().__init__()
-
+        self.db = db
         self.user_id = user_id
-        self.encryption_key = encryption_key
-        self.setWindowTitle("VaultPy")
-        self.resize(800, 600)
-        label = QLabel(f"Добро пожаловать в VaultPy!\n"f"ID пользователя: {self.user_id}")
-        layout = QVBoxLayout()
-        layout.addWidget(label)
-        self.setLayout(layout)
+        self.encr_key = encr_key
+        self.passwords = []
+        self.setWindowTitle("VaultPy - менеджер паролей")
+        self.resize(900, 600)
+        self.table = QTableWidget()
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(['Название', 'Логин', 'Сайт'])
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
 
+        self.add_btn = QPushButton("Добавить")
+        self.edit_btn = QPushButton("Изменить")
+        self.delete_btn = QPushButton("Удалить")
+        self.refresh_btn = QPushButton("Обновить")
+
+        self.add_btn.clicked.connect(self.add_pass)
+        self.edit_btn.clicked.connect(self.edit_pass)
+        self.delete_btn.clicked.connect(self.del_pass)
+        self.refresh_btn.clicked.connect(self.load_pass)
+
+        btns_layout = QHBoxLayout()
+        btns_layout.addWidget(self.add_btn)
+        btns_layout.addWidget(self.edit_btn)
+        btns_layout.addWidget(self.delete_btn)
+        btns_layout.addWidget(self.refresh_btn)
+
+        layout = QVBoxLayout()
+        layout.addLayout(btns_layout)
+        layout.addWidget(self.table)
+        self.setLayout(layout)
+        self.load_pass()
+
+    def load_pass(self):
+        """Загрузка записей из бд"""
+        try:
+            self.passwords = self.db.get_pass(self.user_id, self.encr_key)
+            self.table.setRowCount(len(self.passwords))
+            for row, pass_data in enumerate(self.passwords):
+                title_item = QTableWidgetItem(pass_data['title'])
+                login_item = QTableWidgetItem(pass_data['login'])
+                url_item = QTableWidgetItem(pass_data['url'])
+                self.table.setItem(row, 0, title_item)
+                self.table.setItem(row, 1, login_item)
+                self.table.setItem(row, 2, url_item)
+        except Exception:
+            QMessageBox.critical(self, "Ошибка", "Не удалось загрузить записи из базы данных!")
+
+    def add_pass(self):
+        """Окно добавления записи"""
+        dialog = PassDialog(self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        data = dialog.get_data()
+        try:
+            self.db.add_pass(user_id=self.user_id, category_id=None, title=data['title'], login=data['login'], password=data['password'], utl=data['url'], encr_key=self.encr_key)
+            self.load_pass()
+            QMessageBox.information(self, "Успешно", "Запись добавлена!")
+        except ValueError as er:
+            QMessageBox.warning(self, "Ошибка", str(er))
+
+    def edit_pass(self):
+        """Редактирование выбранной записи"""
+        sel_row = self.table.currentRow()
+        if sel_row < 0:
+            QMessageBox.warning(self, "Внимание", "Сначала выберите запись для изменения")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
