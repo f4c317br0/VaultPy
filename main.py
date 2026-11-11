@@ -199,7 +199,8 @@ class MainWindow(QWidget):
             return
         data = dialog.get_data()
         try:
-            self.db.add_pass(user_id=self.user_id, category_id=None, title=data['title'], login=data['login'], password=data['password'], utl=data['url'], encr_key=self.encr_key)
+            self.db.add_pass(user_id=self.user_id, category_id=None, title=data['title'], login=data['login'],
+                             password=data['password'], utl=data['url'], encr_key=self.encr_key)
             self.load_pass()
             QMessageBox.information(self, "Успешно", "Запись добавлена!")
         except ValueError as er:
@@ -209,7 +210,40 @@ class MainWindow(QWidget):
         """Редактирование выбранной записи"""
         sel_row = self.table.currentRow()
         if sel_row < 0:
-            QMessageBox.warning(self, "Внимание", "Сначала выберите запись для изменения")
+            QMessageBox.warning(self, "Внимание", "Сначала выберите запись для изменения!")
+            return
+        pass_data = self.passwords[sel_row]
+        dialog = PassDialog(self, pass_data=pass_data)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        new_data = dialog.get_data()
+        try:
+            self.db.update_pass(user_id=self.user_id, password_id=pass_data['id'], category_id=pass_data['category_id'],
+                                title=new_data['title'], login=new_data['login'], password=new_data['password'],
+                                url=new_data['url'], encr_key=self.encr_key)
+            self.load_pass()
+            QMessageBox.information(self, "Успешно", "Запись изменена!")
+        except ValueError as er:
+            QMessageBox.warning(self, "Ошибка", str(er))
+
+    def delete_pass(self):
+        """Удаление выбраной записи"""
+        sel_row = self.table.currentRow()
+        if sel_row < 0:
+            QMessageBox.warning(self, "Внимание", "Сначала выберите запись для удаления!")
+            return
+        pass_data = self.passwords[sel_row]
+        ans = QMessageBox.question(self, "Подтверждение", f"Удалить запись <<{pass_data['title']}>>?",
+                                   QMessageBox.StandardButton.Yes, QMessageBox.StandardButton.No)
+        if ans != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            self.db.delete_pass(self.user_id, pass_data['id'])
+            self.load_pass()
+            QMessageBox.information(self, 'Успешно', "Запись удалена!")
+        except ValueError as er:
+            QMessageBox.warning(self, "Ошибка", str(er))
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
