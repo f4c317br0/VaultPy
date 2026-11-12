@@ -78,7 +78,7 @@ class LoginWindow(QWidget):
 
 
 class PassDialog(QDialog):
-    def __init__(self, parent=None, pass_data=None):
+    def __init__(self, parent=None, pass_data=None, categories=None):
         super().__init__(parent)
 
         self.setWindowTitle("Изменение записи" if pass_data else "Новая запись")
@@ -94,6 +94,12 @@ class PassDialog(QDialog):
         self.pass_input.setPlaceholderText("Пароль")
         self.url_input.setPlaceholderText("https://example.com")
 
+        self.category_combo = QComboBox()
+        self.category_combo.addItem("Без категории", None)
+        self.categories = categories or []
+        for category in self.categories:
+            self.category_combo.addItem(category["name"], category["id"])
+
         self.pass_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.show_pass_chb = QCheckBox("Показать пароль")
         self.show_pass_chb.toggled.connect(self.toggle_pass_vis)
@@ -104,6 +110,7 @@ class PassDialog(QDialog):
         layout.addRow("Пароль", self.pass_input)
         layout.addRow("", self.show_pass_chb)
         layout.addRow("Сайт:", self.url_input)
+        layout.addRow("Категория:", self.category_combo)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save
@@ -116,6 +123,10 @@ class PassDialog(QDialog):
         self.setLayout(layout)
 
         if pass_data:
+            category_id = pass_data["category_id"]
+            idx = self.category_combo.findData(category_id)
+            if idx >= 0:
+                self.category_combo.setCurrentIndex(idx)
             self.title_input.setText(pass_data['title'])
             self.login_input.setText(pass_data['login'])
             self.pass_input.setText(pass_data['password'])
@@ -131,12 +142,96 @@ class PassDialog(QDialog):
 
     def get_data(self):
         """Возвращение введенных данных"""
+
         return {
             "title": self.title_input.text().strip(),
             "login": self.login_input.text().strip(),
             "password": self.pass_input.text(),
-            "url": self.url_input.text()
+            "url": self.url_input.text(),
+            "category_id": self.category_combo.currentData()
         }
+
+
+class CatDialog(QDialog):
+    def __init__(self, db, user_id, parent=None):
+        super().__init__(parent)
+        self.db = db
+        self.user_id = user_id
+        self.setWindowTitle("Управление категорями")
+        self.setFixedSize(350, 400)
+        self.cat_list = QListWidget()
+
+        self.add_btn = QPushButton("Добавить")
+        self.rename_btn = QPushButton("Переименовать")
+        self.del_btn = QPushButton("Удалить")
+
+        self.add_btn.clicked.connect(self.add_cat)
+        self.rename_btn.clicked.connect(self.rename_cat)
+        self.del_btn.clicked.connect(self.del_cat)
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.cat_list)
+        layout.addWidget(self.add_btn)
+        layout.addWidget(self.rename_btn)
+        layout.addWidget(self.del_btn)
+
+        self.setLayout(layout)
+        self.load_cat()
+
+    def load_cat(self):
+        """Загрузка категорий пользователя"""
+
+        self.cat_list.clear()
+        self.cats = self.db.get_categories(self.user_id)
+        for cat in self.cats:
+            self.cat_list.addItem(cat["name"])
+
+    def add_cat(self):
+        """Создание новой категории"""
+
+        name, accepted = QInputDialog.getText(self, "Новая категория", "Название категории")
+        if not accepted:
+            return
+        try:
+            self.db.add_category(self.user_id, name)
+            self.load_cat()
+        except ValueError as error:
+            QMessageBox.warning(self, "Ошибка", str(error))
+
+    def rename_cat(self):
+        """Переименование выбранной категории"""
+
+        row = self.cat_list.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Внимание", "Сначала выберите категорию!")
+            return
+        cat = self.cats[row]
+        new_name, accepted = QInputDialog.getText(self, "Переименование", "Новое название", text=cat["name"])
+        if not accepted:
+            return
+        try:
+            self.db.rename_category(self.user_id, cat['id'], new_name)
+            self.load_cat()
+        except ValueError as error:
+            QMessageBox.warning(self, "Ошибка", str(error))
+
+    def del_cat(self):
+        """Удаление выбраной категории"""
+
+        row = self.cat_list.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "Внимание", "Сначала выберите категорию!")
+            return
+        cat = self.cats[row]
+        ans = QMessageBox.question(self, "Подтверждение", f"Удалить запись <<{cat['name']}>>?",
+                                   QMessageBox.StandardButton.Yes, QMessageBox.StandardButton.No)
+        if ans != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            self.db.delete_category(self.user_id, cat['id'])
+            self.load_cat()
+        except ValueError as error:
+            QMessageBox.warning(self, "Ошибка", str(error))
 
 
 class MainWindow(QWidget):
