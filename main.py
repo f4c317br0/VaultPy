@@ -2,8 +2,10 @@ import sys
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QMessageBox, QDialog, \
     QFormLayout, QDialogButtonBox, QCheckBox, QTableWidget, QTableWidgetItem, QHBoxLayout, QHeaderView, \
-    QAbstractItemView, QComboBox, QListWidget, QTextEdit, QInputDialog
+    QAbstractItemView, QComboBox, QListWidget, QTextEdit, QInputDialog, QSpinBox
 from database import Database, init_database
+import secrets
+import string
 
 
 class LoginWindow(QWidget):
@@ -246,6 +248,7 @@ class NotesDialog(QDialog):
 
         self.setWindowTitle("Защищенные заметки")
         self.resize(700, 500)
+        self.resize(700, 500)
 
         self.notes_list = QListWidget()
         self.notes_list.currentRowChanged.connect(self.sel_note)
@@ -352,6 +355,95 @@ class NotesDialog(QDialog):
             QMessageBox.warning(self, "Ошибка", str(error))
 
 
+class GeneratorDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Генератор паролей")
+        self.setFixedSize(350, 300)
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("Длина пароля:"))
+
+        self.len_input = QSpinBox()
+        self.len_input.setRange(8, 64)
+        self.len_input.setValue(16)
+
+        layout.addWidget(self.len_input)
+
+        self.lowercase = QCheckBox("Строчные буквы (a-z)")
+        self.uppercase = QCheckBox("Заглавные буквы (A-Z)")
+        self.digits = QCheckBox("Цифры (0-9)")
+        self.symbols = QCheckBox("Специальные символы")
+
+        self.lowercase.setChecked(True)
+        self.uppercase.setChecked(True)
+        self.digits.setChecked(True)
+        self.symbols.setChecked(True)
+
+        layout.addWidget(self.lowercase)
+        layout.addWidget(self.uppercase)
+        layout.addWidget(self.digits)
+        layout.addWidget(self.symbols)
+
+        self.res_input = QLineEdit()
+        self.res_input.setReadOnly(True)
+        layout.addWidget(self.res_input)
+
+        self.gen_btn = QPushButton("Сгенерировать")
+        self.copy_btn = QPushButton("Копировать")
+
+        self.gen_btn.clicked.connect(self.gen_pass)
+        self.copy_btn.clicked.connect(self.copy_pass)
+
+        layout.addWidget(self.gen_btn)
+        layout.addWidget(self.copy_btn)
+
+    def gen_pass(self):
+        characters = ''
+        req_characters = []
+
+        if self.lowercase.isChecked():
+            characters += string.ascii_lowercase
+            req_characters.append(secrets.choice(string.ascii_lowercase))
+
+        if self.uppercase.isChecked():
+            characters += string.ascii_uppercase
+            req_characters.append(secrets.choice(string.ascii_uppercase))
+
+        if self.digits.isChecked():
+            characters += string.digits
+            req_characters.append(secrets.choice(string.digits))
+
+        if self.symbols.isChecked():
+            special = '!@#$%^&*()-_=+'
+            characters += special
+            req_characters.append(secrets.choice(special))
+
+        if not characters:
+            QMessageBox.warning(self, 'Ошибка', "Выберите хотя бы 1 набор символов!")
+            return
+
+        length = self.len_input.value()
+        if len(req_characters) > length:
+            QMessageBox.warning(self, 'Ошибка', "Длина пароля слишком мала для выбранных паролей!")
+            return
+
+        password = req_characters.copy()
+        for _ in range(length - len(password)):
+            password.append(secrets.choice(characters))
+
+        secrets.SystemRandom().shuffle(password)
+        self.res_input.setText("".join(password))
+
+    def copy_pass(self):
+        password = self.res_input.text()
+        if not password:
+            QMessageBox.warning(self, 'Ошибка', 'Сначала сгенерируйте пароль!')
+            return
+        QApplication.clipboard().setText(password)
+        QMessageBox.information(self, 'Готово', 'Пароль скопирован!')
+
+
 class MainWindow(QWidget):
     def __init__(self, db, user_id, encr_key):
         super().__init__()
@@ -450,7 +542,7 @@ class MainWindow(QWidget):
         if sel_row < 0:
             QMessageBox.warning(self, "Внимание", "Сначала выберите запись для изменения!")
             return
-        pass_data = self.passwords[sel_row]
+        pass_data = self.visible_pass[sel_row]
         cats = self.db.get_categories(self.user_id)
         dialog = PassDialog(self, pass_data=pass_data, categories=cats)
         if dialog.exec() != QDialog.DialogCode.Accepted:
@@ -471,7 +563,7 @@ class MainWindow(QWidget):
         if sel_row < 0:
             QMessageBox.warning(self, "Внимание", "Сначала выберите запись для удаления!")
             return
-        pass_data = self.passwords[sel_row]
+        pass_data = self.visible_pass[sel_row]
         ans = QMessageBox.question(self, "Подтверждение", f"Удалить запись <<{pass_data['title']}>>?",
                                    QMessageBox.StandardButton.Yes, QMessageBox.StandardButton.No)
         if ans != QMessageBox.StandardButton.Yes:
