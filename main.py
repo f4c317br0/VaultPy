@@ -467,6 +467,7 @@ class MainWindow(QWidget):
         self.refresh_btn = QPushButton("Обновить")
         self.cats_btn = QPushButton("Категории")
         self.notes_btn = QPushButton("Заметки")
+        self.gen_btn = QPushButton("Генератор паролей")
 
         self.add_btn.clicked.connect(self.add_pass)
         self.edit_btn.clicked.connect(self.edit_pass)
@@ -474,6 +475,7 @@ class MainWindow(QWidget):
         self.refresh_btn.clicked.connect(self.load_pass)
         self.cats_btn.clicked.connect(self.open_cats)
         self.notes_btn.clicked.connect(self.open_notes)
+        self.gen_btn.clicked.connect(self.open_gen)
 
         btns_layout = QHBoxLayout()
         btns_layout.addWidget(self.add_btn)
@@ -482,6 +484,7 @@ class MainWindow(QWidget):
         btns_layout.addWidget(self.refresh_btn)
         btns_layout.addWidget(self.cats_btn)
         btns_layout.addWidget(self.notes_btn)
+        btns_layout.addWidget(self.gen_btn)
 
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Поиск по названию, логину или URL...")
@@ -493,6 +496,10 @@ class MainWindow(QWidget):
         layout.addWidget(self.table)
         self.setLayout(layout)
         self.load_pass()
+
+    def open_gen(self):
+        dialog = GeneratorDialog(self)
+        dialog.exec()
 
     def filter_pass(self, search_text):
         search_text = search_text.casefold()
