@@ -260,7 +260,7 @@ class NotesDialog(QDialog):
         self.save_btn = QPushButton("Сохранить")
         self.del_btn = QPushButton("Удалить")
 
-        self.add_btn.clicked.connect(self.add_note)
+        self.add_btn.clicked.connect(self.new_note)
         self.save_btn.clicked.connect(self.save_note)
         self.del_btn.clicked.connect(self.del_note)
 
@@ -391,26 +391,41 @@ class MainWindow(QWidget):
         btns_layout.addWidget(self.cats_btn)
         btns_layout.addWidget(self.notes_btn)
 
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Поиск по названию, логину или URL...")
+        self.search_input.textChanged.connect(self.filter_pass)
+
         layout = QVBoxLayout()
         layout.addLayout(btns_layout)
+        layout.addWidget(self.search_input)
         layout.addWidget(self.table)
         self.setLayout(layout)
         self.load_pass()
+
+    def filter_pass(self, search_text):
+        search_text = search_text.casefold()
+        self.visible_pass = [
+            password
+            for password in self.passwords
+            if search_text in password['title'].casefold()
+               or search_text in password['login'].casefold()
+               or search_text in (password['url'] or '').casefold()
+        ]
+        self.table.setRowCount(0)
+        for password in self.visible_pass:
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+            self.table.setItem(row, 0, QTableWidgetItem(password['title']))
+            self.table.setItem(row, 1, QTableWidgetItem(password['login']))
+            self.table.setItem(row, 2, QTableWidgetItem(password['login'] or ""))
 
     def load_pass(self):
         """Загрузка записей из бд"""
         try:
             self.passwords = self.db.get_pass(self.user_id, self.encr_key)
-            self.table.setRowCount(len(self.passwords))
-            for row, pass_data in enumerate(self.passwords):
-                title_item = QTableWidgetItem(pass_data['title'])
-                login_item = QTableWidgetItem(pass_data['login'])
-                url_item = QTableWidgetItem(pass_data['url'])
-                self.table.setItem(row, 0, title_item)
-                self.table.setItem(row, 1, login_item)
-                self.table.setItem(row, 2, url_item)
-        except Exception:
-            QMessageBox.critical(self, "Ошибка", "Не удалось загрузить записи из базы данных!")
+            self.filter_pass(self.search_input.text())
+        except Exception as er:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить пароли: {er}")
 
     def add_pass(self):
         """Окно добавления записи"""
