@@ -36,13 +36,13 @@ class Encryption:
         Применяем pbkdf2 и sha-256
         :param password:
         :param salt:
-        :return: 32 битный ключ (позволяющий смотреть пароли)
+        :return: 32-байтовый (256-битный) ключ (позволяющий смотреть пароли)
         """
         key = hashlib.pbkdf2_hmac('sha-256', password.encode("utf-8"), salt, 600000, dklen=32)
         return key
 
     @staticmethod
-    def encrypt(text: str, key: bytes) -> tuple[int | bytes, bytes]:
+    def encrypt(text: str, key: bytes) -> tuple[bytes, bytes]:
         """
         Шифрование
         Преобразуем пароль в байты

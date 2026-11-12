@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButto
 from database import Database, init_database
 import secrets
 import string
+from cryptography.exceptions import InvalidTag
 
 STYLE = """
 QWidget {
@@ -390,6 +391,10 @@ class NotesDialog(QDialog):
             self.notes = self.db.get_notes(self.user_id, self.encr_key)
             for note in self.notes:
                 self.notes_list.addItem(note['title'])
+        except InvalidTag:
+            QMessageBox.critical(self, 'Ошибка расшифровки',
+                                 'Не удалось расшифровать данные!' 'Возможно, база данных повреждена')
+            return
         except Exception:
             QMessageBox.critical(self, "Ошибка", "Не удалось загрузить заметки")
 
@@ -623,6 +628,10 @@ class MainWindow(QWidget):
         try:
             self.passwords = self.db.get_pass(self.user_id, self.encr_key)
             self.filter_pass(self.search_input.text())
+        except InvalidTag:
+            QMessageBox.critical(self, 'Ошибка расшифровки',
+                                 'Не удалось расшифровать данные!' 'Возможно, база данных повреждена')
+            return
         except Exception as er:
             QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить пароли: {er}")
 

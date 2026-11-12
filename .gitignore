@@ -1,13 +1,25 @@
-.venv/
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+.venv/
+venv/
 
-.env
+# База данных и резервные копии
+database/*.db
+database/*.db-journal
+database/*.db-wal
+database/*.db-shm
+backups/
 
+# Сборка
+build/
+dist/
+*.spec
+
+# IDE
 .idea/
 .vscode/
 
-dist/
-build/
-
-*.log
+# Системные файлы
+.DS_Store
+Thumbs.db
