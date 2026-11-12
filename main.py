@@ -373,17 +373,23 @@ class MainWindow(QWidget):
         self.edit_btn = QPushButton("Изменить")
         self.delete_btn = QPushButton("Удалить")
         self.refresh_btn = QPushButton("Обновить")
+        self.cats_btn = QPushButton("Категории")
+        self.notes_btn = QPushButton("Заметки")
 
         self.add_btn.clicked.connect(self.add_pass)
         self.edit_btn.clicked.connect(self.edit_pass)
         self.delete_btn.clicked.connect(self.delete_pass)
         self.refresh_btn.clicked.connect(self.load_pass)
+        self.cats_btn.clicked.connect(self.open_cats)
+        self.notes_btn.clicked.connect(self.open_notes)
 
         btns_layout = QHBoxLayout()
         btns_layout.addWidget(self.add_btn)
         btns_layout.addWidget(self.edit_btn)
         btns_layout.addWidget(self.delete_btn)
         btns_layout.addWidget(self.refresh_btn)
+        btns_layout.addWidget(self.cats_btn)
+        btns_layout.addWidget(self.notes_btn)
 
         layout = QVBoxLayout()
         layout.addLayout(btns_layout)
@@ -408,12 +414,15 @@ class MainWindow(QWidget):
 
     def add_pass(self):
         """Окно добавления записи"""
-        dialog = PassDialog(self)
+
+        cats = self.db.get_categories(self.user_id)
+        dialog = PassDialog(self, categories=cats)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         data = dialog.get_data()
         try:
-            self.db.add_pass(user_id=self.user_id, category_id=None, title=data['title'], login=data['login'],
+            self.db.add_pass(user_id=self.user_id, category_id=data['category_id'], title=data['title'],
+                             login=data['login'],
                              password=data['password'], url=data['url'], encr_key=self.encr_key)
             self.load_pass()
             QMessageBox.information(self, "Успешно", "Запись добавлена!")
@@ -427,12 +436,13 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, "Внимание", "Сначала выберите запись для изменения!")
             return
         pass_data = self.passwords[sel_row]
-        dialog = PassDialog(self, pass_data=pass_data)
+        cats = self.db.get_categories(self.user_id)
+        dialog = PassDialog(self, pass_data=pass_data, categories=cats)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         new_data = dialog.get_data()
         try:
-            self.db.update_pass(user_id=self.user_id, password_id=pass_data['id'], category_id=pass_data['category_id'],
+            self.db.update_pass(user_id=self.user_id, password_id=pass_data['id'], category_id=new_data['category_id'],
                                 title=new_data['title'], login=new_data['login'], password=new_data['password'],
                                 url=new_data['url'], encr_key=self.encr_key)
             self.load_pass()
@@ -457,6 +467,19 @@ class MainWindow(QWidget):
             QMessageBox.information(self, 'Успешно', "Запись удалена!")
         except ValueError as er:
             QMessageBox.warning(self, "Ошибка", str(er))
+
+    def open_cats(self):
+        """Открывание управления категорями"""
+
+        dialog = CatDialog(self.db, self.user_id, self)
+        dialog.exec()
+        self.load_pass()
+
+    def open_notes(self):
+        """Открывание окно заметок"""
+
+        dialog = NotesDialog(self.db, self.user_id, self.encr_key, self)
+        dialog.exec()
 
 
 def except_hook(cls, exception, traceback):
