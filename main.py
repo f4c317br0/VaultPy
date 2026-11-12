@@ -7,6 +7,98 @@ from database import Database, init_database
 import secrets
 import string
 
+STYLE = """
+QWidget {
+    background-color: #1e1e2e;
+    color: #cdd6f4;
+    font-family: Segoe UI;
+    font-size: 10pt;
+}
+
+QDialog {
+    background-color: #1e1e2e;
+}
+
+QLabel {
+    color: #cdd6f4;
+}
+
+QLineEdit, QTextEdit, QComboBox, QSpinBox {
+    background-color: #313244;
+    color: #cdd6f4;
+    border: 1px solid #45475a;
+    border-radius: 6px;
+    padding: 7px;
+    selection-background-color: #585b70;
+}
+
+QLineEdit:focus, QTextEdit:focus,
+QComboBox:focus, QSpinBox:focus {
+    border: 1px solid #89b4fa;
+}
+
+QPushButton {
+    background-color: #45475a;
+    color: #cdd6f4;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 14px;
+}
+
+QPushButton:hover {
+    background-color: #585b70;
+}
+
+QPushButton:pressed {
+    background-color: #313244;
+}
+
+QTableWidget, QListWidget {
+    background-color: #181825;
+    alternate-background-color: #242436;
+    color: #cdd6f4;
+    border: 1px solid #45475a;
+    border-radius: 6px;
+    gridline-color: #313244;
+    selection-background-color: #45475a;
+    selection-color: #ffffff;
+}
+
+QHeaderView::section {
+    background-color: #313244;
+    color: #cdd6f4;
+    padding: 8px;
+    border: none;
+    border-bottom: 1px solid #45475a;
+}
+
+QCheckBox {
+    spacing: 8px;
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+}
+
+QScrollBar:vertical {
+    background-color: #181825;
+    width: 10px;
+    margin: 0;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #585b70;
+    border-radius: 4px;
+    min-height: 20px;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0;
+}
+"""
+
 
 class LoginWindow(QWidget):
     def __init__(self, db):
@@ -85,6 +177,7 @@ class PassDialog(QDialog):
 
         self.setWindowTitle("Изменение записи" if pass_data else "Новая запись")
         self.setFixedSize(400, 300)
+        self.setMinimumSize(400, 300)
 
         self.title_input = QLineEdit()
         self.login_input = QLineEdit()
@@ -161,6 +254,7 @@ class CatDialog(QDialog):
         self.user_id = user_id
         self.setWindowTitle("Управление категорями")
         self.setFixedSize(350, 400)
+        self.setMinimumSize(600, 400)
         self.cat_list = QListWidget()
 
         self.add_btn = QPushButton("Добавить")
@@ -248,7 +342,7 @@ class NotesDialog(QDialog):
 
         self.setWindowTitle("Защищенные заметки")
         self.resize(700, 500)
-        self.resize(700, 500)
+        self.setMinimumSize(400, 300)
 
         self.notes_list = QListWidget()
         self.notes_list.currentRowChanged.connect(self.sel_note)
@@ -454,6 +548,12 @@ class MainWindow(QWidget):
         self.setWindowTitle("VaultPy - менеджер паролей")
         self.resize(900, 600)
         self.table = QTableWidget()
+        self.table.setAlternatingRowColors(True)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.verticalHeader().setVisible(False)
+        self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setColumnCount(3)
         self.table.setHorizontalHeaderLabels(['Название', 'Логин', 'Сайт'])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -516,7 +616,7 @@ class MainWindow(QWidget):
             self.table.insertRow(row)
             self.table.setItem(row, 0, QTableWidgetItem(password['title']))
             self.table.setItem(row, 1, QTableWidgetItem(password['login']))
-            self.table.setItem(row, 2, QTableWidgetItem(password['login'] or ""))
+            self.table.setItem(row, 2, QTableWidgetItem(password['url'] or ""))
 
     def load_pass(self):
         """Загрузка записей из бд"""
@@ -596,14 +696,10 @@ class MainWindow(QWidget):
         dialog.exec()
 
 
-def except_hook(cls, exception, traceback):
-    sys.__excepthook__(cls, exception, traceback)
-
-
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    sys.excepthook = except_hook
     init_database()
+    app = QApplication(sys.argv)
+    app.setStyleSheet(STYLE)
     db = Database()
     login_window = LoginWindow(db)
     login_window.show()
