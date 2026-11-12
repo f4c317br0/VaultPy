@@ -3,14 +3,24 @@ import os
 from contextlib import contextmanager
 from datetime import datetime
 from encryption import Encryption
+from pathlib import Path
+
+
+def get_database_path():
+    app_data = os.getenv("APPDATA")
+    if app_data:
+        data_dir = Path(app_data) / "VaultPy"
+    else:
+        data_dir = Path.home() / ".vaultpy"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return str(data_dir / "vault.db")
 
 
 def init_database():
     """Создаём базы данных и таблицы"""
 
-    os.makedirs("database", exist_ok=True)
-
-    con = sqlite3.connect("database/vault.db")
+    db_path = get_database_path()
+    con = sqlite3.connect(db_path)
     cur = con.cursor()
 
     cur.execute("PRAGMA foreign_keys = ON")
@@ -73,7 +83,7 @@ def init_database():
 
 class Database:
     def __init__(self):
-        self.db_path = 'database/vault.db'
+        self.db_path = get_database_path()
         os.makedirs(os.path.dirname(self.db_path) or '.', exist_ok=True)
 
     @contextmanager
@@ -466,24 +476,4 @@ class Database:
 
 if __name__ == "__main__":
     init_database()
-    # print("Все четко")
-    #
-    # db = Database()
-    # user_id, encr_key = db.register("Roman", "my_master_pass")
-    # res = db.login("Roman", "my_master_pass")
-    # if res is None:
-    #     print("Неверное имя пользователя или пароль")
-    # else:
-    #     user_id, encr_key = res
-    #     print('Успешный вход')
-    #
-    #     db.add_pass(user_id=user_id, category_id=None, title='GitHub', login='my_login', password='secret123',
-    #                 url='https://github.com', encr_key=encr_key)
-    #     encr_pass, nonce = Encryption.encrypt("secret123", encr_key)
-    #
-    #     passwords = db.get_pass(user_id, encr_key)
-    #
-    #     for item in passwords:
-    #         print(item["title"])
-    #         print(item["login"])
-    #         print(item["password"])
+    print("База данных успешно инициализирована!")
