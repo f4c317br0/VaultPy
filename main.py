@@ -234,6 +234,124 @@ class CatDialog(QDialog):
             QMessageBox.warning(self, "Ошибка", str(error))
 
 
+class NotesDialog(QDialog):
+    def __init__(self, db, user_id, encr_key, parent=None):
+        super().__init__(parent)
+
+        self.db = db
+        self.user_id = user_id
+        self.encr_key = encr_key
+        self.notes = []
+        self.curr_note_id = None
+
+        self.setWindowTitle("Защищенные заметки")
+        self.resize(700, 500)
+
+        self.notes_list = QListWidget()
+        self.notes_list.currentRowChanged.connect(self.sel_note)
+
+        self.title_input = QLineEdit()
+        self.title_input.setPlaceholderText("Название заметки")
+
+        self.content_input = QTextEdit()
+        self.content_input.setPlaceholderText("Введите содержимое заметки...")
+
+        self.add_btn = QPushButton("Новая заметка")
+        self.save_btn = QPushButton("Сохранить")
+        self.del_btn = QPushButton("Удалить")
+
+        self.add_btn.clicked.connect(self.add_note)
+        self.save_btn.clicked.connect(self.save_note)
+        self.del_btn.clicked.connect(self.del_note)
+
+        l_layout = QVBoxLayout()
+        l_layout.addWidget(QLabel('Мои заметки'))
+        l_layout.addWidget(self.notes_list)
+        l_layout.addWidget(self.add_btn)
+
+        r_layout = QVBoxLayout()
+        r_layout.addWidget(QLabel("Название"))
+        r_layout.addWidget(self.title_input)
+        r_layout.addWidget(QLabel("Содержимое"))
+        r_layout.addWidget(self.content_input)
+        r_layout.addWidget(self.save_btn)
+        r_layout.addWidget(self.del_btn)
+
+        main_layout = QHBoxLayout()
+        main_layout.addLayout(l_layout, 1)
+        main_layout.addLayout(r_layout, 2)
+        self.setLayout(main_layout)
+        self.load_notes()
+
+    def load_notes(self):
+        """Загрузка заметок из бд"""
+
+        self.notes_list.blockSignals(True)
+        self.notes_list.clear()
+
+        try:
+            self.notes = self.db.get_notes(self.user_id, self.encr_key)
+            for note in self.notes:
+                self.notes_list.addItem(note['title'])
+        except Exception:
+            QMessageBox.critical(self, "Ошибка", "Не удалось загрузить заметки")
+
+        self.notes_list.blockSignals(False)
+        self.new_note()
+
+    def sel_note(self, row):
+        """Вывод выбранной заметки"""
+
+        if row < 0 or row >= len(self.notes):
+            return
+        note = self.notes[row]
+
+        self.curr_note_id = note['id']
+        self.title_input.setText(note['title'])
+        self.content_input.setPlainText(note['content'])
+
+    def new_note(self):
+        """Подготавление нового поля для заметки"""
+
+        self.notes_list.clearSelection()
+        self.curr_note_id = None
+        self.title_input.clear()
+        self.content_input.clear()
+
+    def save_note(self):
+        """Добавление новой заметки или изменении существующей"""
+
+        title = self.title_input.text().strip()
+        content = self.content_input.toPlainText()
+
+        try:
+            if self.curr_note_id is None:
+                self.db.add_note(self.user_id, title, content, self.encr_key)
+                QMessageBox.information(self, "Успешно", "Заметка создана")
+            else:
+                self.db.update_note(self.user_id, self.curr_note_id, title, content, self.encr_key)
+                QMessageBox.information(self, "Успешно", "Заметка изменена")
+            self.load_notes()
+        except ValueError as error:
+            QMessageBox.warning(self, "Ошибка", str(error))
+
+    def del_note(self):
+        """Удаление выбранной заметки"""
+
+        if self.curr_note_id is None:
+            QMessageBox.warning(self, "Внимание", "Сначала выберите заметку")
+            return
+        ans = QMessageBox.question(self, "Подтверждение", f"Удалить эту заметку?",
+                                   QMessageBox.StandardButton.Yes, QMessageBox.StandardButton.No)
+        if ans != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            self.db.delete_note(self.user_id, self.curr_note_id)
+            self.load_notes()
+        except ValueError as error:
+            QMessageBox.warning(self, "Ошибка", str(error))
+
+
 class MainWindow(QWidget):
     def __init__(self, db, user_id, encr_key):
         super().__init__()
